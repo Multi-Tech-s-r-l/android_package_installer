@@ -20,12 +20,20 @@ internal class Installer(private val context: Context, private var activity: Act
         this.activity = activity
     }
 
+    private var packageNameToInstall: String? = null
+
     fun installPackage(apkPath: String) {
         try {
+            // Estrai il package name dall'APK prima dell'installazione
+            packageNameToInstall = getPackageNameFromApk(apkPath)
+
             session = createSession(activity!!)
             loadAPKFile(apkPath, session)
             val intent = Intent(context, activity!!.javaClass)
             intent.action = packageInstalledAction
+            // Aggiungi il package name all'intent
+            packageNameToInstall?.let { intent.putExtra("PACKAGE_NAME", it) }
+
             val pendingIntent = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_MUTABLE)
             val statusReceiver = pendingIntent.intentSender
             session.commit(statusReceiver)
@@ -35,6 +43,15 @@ internal class Installer(private val context: Context, private var activity: Act
         } catch (e: Exception) {
             session.abandon()
             throw e
+        }
+    }
+
+    private fun getPackageNameFromApk(apkPath: String): String? {
+        return try {
+            val packageInfo = packageManager.getPackageArchiveInfo(apkPath, 0)
+            packageInfo?.packageName
+        } catch (e: Exception) {
+            null
         }
     }
 

@@ -21,11 +21,30 @@ internal class OnNewIntentListener(private var activity: Activity?) : PluginRegi
                     activity?.startActivity(confirmIntent)
                 }
 
+                PackageInstaller.STATUS_SUCCESS -> {
+                    // Avvia automaticamente l'applicazione installata
+                    val packageName = extras.getString(PackageInstaller.EXTRA_PACKAGE_NAME)
+                    packageName?.let { launchInstalledApp(it) }
+                    MethodCallHandler.resultSuccess(status)
+                }
+
                 else -> {
                     MethodCallHandler.resultSuccess(status)
                 }
             }
         }
         return true
+    }
+
+    private fun launchInstalledApp(packageName: String) {
+        try {
+            val launchIntent = activity?.packageManager?.getLaunchIntentForPackage(packageName)
+            launchIntent?.let {
+                it.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                activity?.startActivity(it)
+            }
+        } catch (e: Exception) {
+            // Gestione errore se l'app non può essere avviata
+        }
     }
 }
