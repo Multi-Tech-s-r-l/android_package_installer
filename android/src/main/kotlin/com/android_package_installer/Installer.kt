@@ -20,21 +20,30 @@ internal class Installer(private val context: Context, private var activity: Act
         this.activity = activity
     }
 
-    private var packageNameToInstall: String? = null
+    // Aggiungi questa variabile a livello di classe
+    private var currentPackageName: String? = null
 
     fun installPackage(apkPath: String) {
         try {
-            // Estrai il package name dall'APK prima dell'installazione
-            packageNameToInstall = getPackageNameFromApk(apkPath)
+            // Estrai il package name prima dell'installazione
+            currentPackageName = extractPackageNameFromApk(apkPath)
 
             session = createSession(activity!!)
             loadAPKFile(apkPath, session)
+
             val intent = Intent(context, activity!!.javaClass)
             intent.action = packageInstalledAction
-            // Aggiungi il package name all'intent
-            packageNameToInstall?.let { intent.putExtra("PACKAGE_NAME", it) }
+            // Passa il package name attraverso l'intent
+            currentPackageName?.let {
+                intent.putExtra("PACKAGE_NAME", it)
+            }
 
-            val pendingIntent = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_MUTABLE)
+            val pendingIntent = PendingIntent.getActivity(
+                context,
+                0,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+            )
             val statusReceiver = pendingIntent.intentSender
             session.commit(statusReceiver)
             session.close()
@@ -46,11 +55,13 @@ internal class Installer(private val context: Context, private var activity: Act
         }
     }
 
-    private fun getPackageNameFromApk(apkPath: String): String? {
+    private fun extractPackageNameFromApk(apkPath: String): String? {
         return try {
-            val packageInfo = packageManager.getPackageArchiveInfo(apkPath, 0)
+            val pm = context.packageManager
+            val packageInfo = pm.getPackageArchiveInfo(apkPath, PackageManager.GET_ACTIVITIES)
             packageInfo?.packageName
         } catch (e: Exception) {
+            android.util.Log.e("PackageInstaller", "Errore estrazione package name: ${e.message}")
             null
         }
     }
