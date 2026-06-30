@@ -1,19 +1,6 @@
 group = "com.android_package_installer"
 version = "1.0-SNAPSHOT"
 
-buildscript {
-    ext.kotlin_version = "1.8.22"
-    repositories {
-        google()
-        mavenCentral()
-    }
-
-    dependencies {
-        classpath("com.android.tools.build:gradle:8.7.0")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version")
-    }
-}
-
 allprojects {
     repositories {
         google()
@@ -22,6 +9,17 @@ allprojects {
 }
 
 apply plugin: "com.android.library"
+
+// AGP 9's built-in Kotlin compiles Kotlin itself and rejects the Kotlin
+// Gradle Plugin (KGP). Apply KGP only when built-in Kotlin is NOT active so
+// the plugin keeps building on AGP 8 while staying compatible with AGP 9+.
+def agpMajor = com.android.Version.ANDROID_GRADLE_PLUGIN_VERSION.tokenize('.')[0] as int
+def builtInKotlinActive = agpMajor >= 9 &&
+    (!project.hasProperty('android.builtInKotlin') ||
+        Boolean.parseBoolean(project.property('android.builtInKotlin').toString()))
+if (!builtInKotlinActive) {
+    apply plugin: "kotlin-android"
+}
 
 android {
     namespace = "com.android_package_installer"
@@ -33,10 +31,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_11
     }
 
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11
-    }
-
     sourceSets {
         main.java.srcDirs += "src/main/kotlin"
         test.java.srcDirs += "src/test/kotlin"
@@ -44,5 +38,23 @@ android {
 
     defaultConfig {
         minSdk = 21
+    }
+}
+
+// Use the modern compilerOptions DSL when available (KGP 1.8+/built-in Kotlin),
+// falling back to the legacy kotlinOptions for older toolchains.
+project.afterEvaluate {
+    try {
+        kotlin {
+            compilerOptions {
+                jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11
+            }
+        }
+    } catch (Throwable ignored) {
+        android {
+            kotlinOptions {
+                jvmTarget = JavaVersion.VERSION_11
+            }
+        }
     }
 }
